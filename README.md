@@ -204,4 +204,4 @@ For support and questions:
 - `monorepo-main`: Monorepo structure with both frontend and backend
 - `develop`: Development branch for new features
 - Feature branches: `feature/feature-name`
-- Hotfix branches: `hotfix/issue-description` 
+- Hotfix branches: `hotfix/issue-description`
