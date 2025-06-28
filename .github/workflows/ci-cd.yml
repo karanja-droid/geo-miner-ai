@@ -1,0 +1,55 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:14-3.3
+        env:
+          POSTGRES_DB: geovision_ai_miner
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install backend dependencies
+        run: |
+          cd geovision-ai-miner-server
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+      - name: Lint backend
+        run: |
+          cd geovision-ai-miner-server
+          source venv/bin/activate
+          pylint app || true
+      - name: Install frontend dependencies
+        run: |
+          cd geovision-ai-miner-client
+          npm install
+      - name: Lint frontend
+        run: |
+          cd geovision-ai-miner-client
+          npm run lint || true
+      - name: Build backend Docker image
+        run: docker build -t geovision-ai-miner-backend ./geovision-ai-miner-server
+      - name: Build frontend Docker image
+        run: docker build -t geovision-ai-miner-frontend ./geovision-ai-miner-client 
