@@ -1,0 +1,64 @@
+{
+  "figma": {
+    "fileId": "YOUR_FIGMA_FILE_ID",
+    "accessToken": "YOUR_FIGMA_ACCESS_TOKEN",
+    "components": {
+      "geologicalMap": {
+        "nodeId": "geological-map-component",
+        "description": "Interactive geological map viewer with layer controls"
+      },
+      "dataDashboard": {
+        "nodeId": "data-dashboard-component", 
+        "description": "Mining data dashboard with charts and metrics"
+      },
+      "modelViewer": {
+        "nodeId": "3d-model-viewer",
+        "description": "3D geological model viewer with controls"
+      },
+      "analysisPanel": {
+        "nodeId": "analysis-panel",
+        "description": "Geological analysis tools and results panel"
+      }
+    },
+    "designTokens": {
+      "colors": {
+        "primary": "#1976d2",
+        "secondary": "#dc004e", 
+        "success": "#4caf50",
+        "warning": "#ff9800",
+        "error": "#f44336",
+        "geological": {
+          "rock": "#8B4513",
+          "mineral": "#FFD700",
+          "soil": "#DEB887",
+          "water": "#4682B4"
+        }
+      },
+      "typography": {
+        "fontFamily": "Roboto, sans-serif",
+        "fontSizes": {
+          "h1": "2.5rem",
+          "h2": "2rem", 
+          "h3": "1.75rem",
+          "body": "1rem",
+          "caption": "0.875rem"
+        }
+      },
+      "spacing": {
+        "xs": "0.25rem",
+        "sm": "0.5rem",
+        "md": "1rem",
+        "lg": "1.5rem",
+        "xl": "2rem"
+      }
+    },
+    "exportSettings": {
+      "format": "tsx",
+      "framework": "react",
+      "typescript": true,
+      "styledComponents": false,
+      "includeAccessibility": true,
+      "responsive": true
+    }
+  }
+} 

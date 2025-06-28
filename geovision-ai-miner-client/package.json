@@ -43,7 +43,10 @@
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "format": "prettier --write src/**/*.{ts,tsx}",
     "type-check": "tsc --noEmit",
-    "test:coverage": "react-scripts test --coverage --watchAll=false"
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "generate-tokens": "node scripts/generate-design-tokens.js",
+    "generate-components": "node scripts/generate-figma-components.js",
+    "figma-sync": "npm run generate-tokens && npm run generate-components"
   },
   "eslintConfig": {
     "extends": [

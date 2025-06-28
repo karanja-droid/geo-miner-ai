@@ -1,0 +1,51 @@
+:root {
+  --color-primary: #1976d2;
+  --color-secondary: #dc004e;
+  --color-success: #4caf50;
+  --color-warning: #ff9800;
+  --color-error: #f44336;
+  --color-geological-rock: #8B4513;
+  --color-geological-mineral: #FFD700;
+  --color-geological-soil: #DEB887;
+  --color-geological-water: #4682B4;
+  --font-family: Roboto, sans-serif;
+  --font-size-h1: 2.5rem;
+  --font-size-h2: 2rem;
+  --font-size-h3: 1.75rem;
+  --font-size-body: 1rem;
+  --font-size-caption: 0.875rem;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
+
+.text-primary { color: var(--color-primary); }
+.bg-primary { background-color: var(--color-primary); }
+.text-secondary { color: var(--color-secondary); }
+.bg-secondary { background-color: var(--color-secondary); }
+.text-success { color: var(--color-success); }
+.bg-success { background-color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.bg-warning { background-color: var(--color-warning); }
+.text-error { color: var(--color-error); }
+.bg-error { background-color: var(--color-error); }
+.text-geological-rock { color: var(--color-geological-rock); }
+.bg-geological-rock { background-color: var(--color-geological-rock); }
+.text-geological-mineral { color: var(--color-geological-mineral); }
+.bg-geological-mineral { background-color: var(--color-geological-mineral); }
+.text-geological-soil { color: var(--color-geological-soil); }
+.bg-geological-soil { background-color: var(--color-geological-soil); }
+.text-geological-water { color: var(--color-geological-water); }
+.bg-geological-water { background-color: var(--color-geological-water); }
+.p-xs { padding: var(--spacing-xs); }
+.m-xs { margin: var(--spacing-xs); }
+.p-sm { padding: var(--spacing-sm); }
+.m-sm { margin: var(--spacing-sm); }
+.p-md { padding: var(--spacing-md); }
+.m-md { margin: var(--spacing-md); }
+.p-lg { padding: var(--spacing-lg); }
+.m-lg { margin: var(--spacing-lg); }
+.p-xl { padding: var(--spacing-xl); }
+.m-xl { margin: var(--spacing-xl); }
