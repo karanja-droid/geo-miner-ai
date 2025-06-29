@@ -2,6 +2,10 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from 'react-query';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
 import './App.css';
 
 // Layout Components
@@ -81,16 +85,30 @@ function App() {
       <Router>
         <div className="flex h-screen bg-gray-100">
           <Sidebar />
-          <div className="flex-1 overflow-auto">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/maps" element={<Maps />} />
-              <Route path="/models" element={<Models />} />
-              <Route path="/geochemical" element={<Geochemical />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
+          <div className="flex-1 flex flex-col">
+            <AppBar position="static" sx={{ backgroundColor: '#1f2937' }}>
+              <Toolbar>
+                <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                  GeoVision AI Miner
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="body2">
+                    Welcome, GeoMiner User
+                  </Typography>
+                </Box>
+              </Toolbar>
+            </AppBar>
+            <div className="flex-1 overflow-auto">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/maps" element={<Maps />} />
+                <Route path="/models" element={<Models />} />
+                <Route path="/geochemical" element={<Geochemical />} />
+                <Route path="/settings" element={<Settings />} />
+              </Routes>
+            </div>
           </div>
         </div>
         <Toaster 
