@@ -25,7 +25,6 @@ dependencies = [
     "neo4j>=5.15.0",
     "py2neo>=2021.2.4",
     "networkx>=3.2.1",
-    "matplotlib>=3.8.2",
     
     # Authentication & Security
     "python-jose[cryptography]>=3.3.0",
@@ -36,74 +35,34 @@ dependencies = [
     "celery[redis]>=5.3.4",
     "redis>=5.0.1",
     
-    # File Storage
-    "minio>=7.2.0",
-    "python-magic>=0.4.27",
-    
     # Data Processing
     "pandas>=2.1.4",
     "numpy>=1.26.2",
     "geopandas>=0.14.1",
     "shapely>=2.0.2",
-    "rasterio>=1.3.9",
     
     # AI/ML Core
     "scikit-learn>=1.3.2",
-    "tensorflow>=2.15.0",
-    "torch>=2.1.2",
-    "transformers>=4.36.2",
     "openai>=1.3.0",
-    "anthropic>=0.7.0",
-    "dashscope>=1.14.0",  # Alibaba Qwen
     "langchain>=0.1.0",
     "langchain-openai>=0.0.2",
-    "langchain-anthropic>=0.0.2",
-    "langchain-community>=0.0.10",
     
     # Geological Analysis Tools
     "geopy>=2.4.0",
     "folium>=0.15.0",
     "plotly>=5.17.0",
-    "seaborn>=0.13.0",
     "scipy>=1.11.4",
-    "statsmodels>=0.14.0",
-    "geostat>=0.1.0",
-    "gstools>=1.4.0",  # Geostatistical tools
-    "pykrige>=1.6.0",  # Kriging interpolation
-    "geoplot>=0.5.0",
-    "earthpy>=0.9.4",
-    
-    # Geophysical Analysis
-    "obspy>=1.4.0",  # Seismology
-    "lasio>=0.30.0",  # LAS file handling
-    "welly>=0.5.0",  # Well log analysis
-    "striplog>=0.8.0",  # Stratigraphic analysis
-    "bruges>=0.4.0",  # Geophysical utilities
-    
-    # Geochemical Analysis
-    "periodictable>=1.6.0",
-    "chempy>=0.8.0",
-    "thermo>=0.2.0",
-    "pymatgen>=2023.12.18",  # Materials analysis
-    "ase>=3.22.1",  # Atomic simulation environment
-    
-    # 3D Visualization
-    "vtk>=9.3.0",
-    "pyvista>=0.43.0",
-    "trimesh>=4.0.0",
-    "open3d>=0.17.0",
+    "gstools>=1.4.0",
+    "pykrige>=1.6.0",
     
     # Webhooks & API Integration
-    "webhooks>=0.1.0",
     "requests>=2.31.0",
     "aiohttp>=3.9.1",
     "websockets>=12.0",
-    "sse-starlette>=1.8.2",  # Server-sent events
     
     # Monitoring & Logging
     "prometheus-client>=0.19.0",
     "structlog>=23.2.0",
-    "sentry-sdk[fastapi]>=1.38.0",
     
     # Configuration
     "pydantic-settings>=2.1.0",
@@ -115,11 +74,6 @@ dependencies = [
     "email-validator>=2.1.0",
     "python-slugify>=8.0.1",
     "pytz>=2023.3",
-    "jinja2>=3.1.2",
-    "markdown>=3.5.1",
-    "pypdf>=3.17.0",
-    "python-docx>=1.1.0",
-    "openpyxl>=3.1.2",
 ]
 
 [project.optional-dependencies]
@@ -128,61 +82,25 @@ dev = [
     "pytest-asyncio>=0.21.1",
     "pytest-cov>=4.1.0",
     "httpx>=0.25.2",
-    "factory-boy>=3.3.0",
-    "faker>=20.1.0",
     "black>=23.11.0",
     "isort>=5.12.0",
     "flake8>=6.1.0",
     "mypy>=1.7.1",
-    "pre-commit>=3.6.0",
-    "bandit>=1.7.5",
 ]
 
 ai = [
     "openai>=1.3.0",
-    "anthropic>=0.7.0",
-    "dashscope>=1.14.0",
     "langchain>=0.1.0",
     "langchain-openai>=0.0.2",
-    "langchain-anthropic>=0.0.2",
-    "langchain-community>=0.0.10",
 ]
 
 geological = [
     "geopy>=2.4.0",
     "folium>=0.15.0",
     "plotly>=5.17.0",
-    "seaborn>=0.13.0",
     "scipy>=1.11.4",
-    "statsmodels>=0.14.0",
-    "geostat>=0.1.0",
     "gstools>=1.4.0",
     "pykrige>=1.6.0",
-    "geoplot>=0.5.0",
-    "earthpy>=0.9.4",
-]
-
-geophysical = [
-    "obspy>=1.4.0",
-    "lasio>=0.30.0",
-    "welly>=0.5.0",
-    "striplog>=0.8.0",
-    "bruges>=0.4.0",
-]
-
-geochemical = [
-    "periodictable>=1.6.0",
-    "chempy>=0.8.0",
-    "thermo>=0.2.0",
-    "pymatgen>=2023.12.18",
-    "ase>=3.22.1",
-]
-
-visualization = [
-    "vtk>=9.3.0",
-    "pyvista>=0.43.0",
-    "trimesh>=4.0.0",
-    "open3d>=0.17.0",
 ]
 
 [project.urls]
@@ -192,6 +110,9 @@ Repository = "https://github.com/geominer/geo-miner-backend.git"
 
 [tool.hatch.version]
 path = "app/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [tool.black]
 line-length = 88
@@ -218,8 +139,4 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["*/tests/*", "*/migrations/*"]
-
-[tool.bandit]
-exclude_dirs = ["tests", "migrations"]
-skips = ["B101", "B601"] 
+omit = ["*/tests/*", "*/migrations/*"] 
