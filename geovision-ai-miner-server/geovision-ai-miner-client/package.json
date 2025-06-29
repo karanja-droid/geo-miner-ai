@@ -11,7 +11,7 @@
     "@heroicons/react": "^2.0.18",
     "@hookform/resolvers": "^3.3.2",
     "@mui/icons-material": "^5.15.0",
-    "@mui/material": "^5.17.1",
+    "@mui/material": "^5.15.0",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
     "autoprefixer": "^10.4.15",
