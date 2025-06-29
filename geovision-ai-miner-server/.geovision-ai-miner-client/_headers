@@ -1,0 +1,12 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.geo-miner.com wss://api.geo-miner.com; frame-src 'none';
+
+/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/api/*
+  Cache-Control: no-cache, no-store, must-revalidate 

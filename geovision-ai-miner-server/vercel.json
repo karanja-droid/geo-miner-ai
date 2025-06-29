@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "geovision-ai-miner-client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "geovision-ai-miner-client/build"
+      }
+    },
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/geovision-ai-miner-client/build/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/geovision-ai-miner-client/build/index.html"
+    }
+  ],
+  "env": {
+    "REACT_APP_API_URL": "https://geo-miner.com/api",
+    "REACT_APP_WEBSOCKET_URL": "wss://geo-miner.com/api/ws"
+  }
+} 

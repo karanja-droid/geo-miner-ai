@@ -1,0 +1,24 @@
+name = "geovision-ai-miner-api"
+main = "worker/index.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "geovision-ai-miner-api"
+route = "api.geo-miner.com/*"
+
+[env.staging]
+name = "geovision-ai-miner-api-staging"
+
+# Uncomment and add your actual IDs when you create the resources
+# [[env.production.kv_namespaces]]
+# binding = "GEOVISION_KV"
+# id = "your-actual-kv-namespace-id"
+
+# [[env.production.d1_databases]]
+# binding = "DB"
+# database_name = "geovision-db"
+# database_id = "your-actual-d1-database-id"
+
+[env.production.vars]
+ENVIRONMENT = "production" 
