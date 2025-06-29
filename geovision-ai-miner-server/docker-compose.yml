@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -251,6 +249,22 @@ services:
     networks:
       - geominer-network
 
+  # Frontend Service
+  frontend:
+    build:
+      context: ./geovision-ai-miner-client
+      dockerfile: Dockerfile
+    container_name: geominer-frontend
+    ports:
+      - "3000:80" # Expose Nginx port 80 to host port 3000
+    env_file:
+      - ./geovision-ai-miner-client/.env # Load environment variables for build time
+    depends_on:
+      - backend # Optional: if frontend needs backend to be up for some build step or health check
+    networks:
+      - geominer-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   neo4j_data:
@@ -261,6 +275,7 @@ volumes:
   minio_data:
   prometheus_data:
   grafana_data:
+  # Note: Frontend is stateless, so no volume needed for /usr/share/nginx/html unless specific caching desired
 
 networks:
   geominer-network:
