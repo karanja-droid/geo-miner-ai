@@ -59,6 +59,7 @@
     "@jest/globals": "latest",
     "@radix-ui/react-slot": "latest",
     "@storybook/addon-themes": "latest",
+    "@supabase/supabase-js": "latest",
     "@testing-library/dom": "latest",
     "child_process": "latest",
     "class-variance-authority": "^0.7.1",
