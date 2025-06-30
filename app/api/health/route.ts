@@ -1,46 +1,37 @@
 import { NextResponse } from "next/server"
+import { supabase } from "@/lib/supabase"
 
 export async function GET() {
   try {
-    // Check database connection if applicable
-    // const dbStatus = await checkDatabaseConnection()
+    // Test database connection
+    const { data, error } = await supabase.from("profiles").select("count").limit(1)
 
-    // Check external API connectivity
-    // const apiStatus = await checkExternalAPIs()
-
-    const healthData = {
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV,
-      version: process.env.npm_package_version || "1.0.0",
-      build: process.env.BUILD_ID || "unknown",
-      checks: {
-        database: "healthy", // Replace with actual check
-        externalAPI: "healthy", // Replace with actual check
-        memory: {
-          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+    if (error) {
+      return NextResponse.json(
+        {
+          status: "unhealthy",
+          error: "Database connection failed",
+          details: error.message,
+          timestamp: new Date().toISOString(),
         },
-      },
+        { status: 503 },
+      )
     }
 
-    return NextResponse.json(healthData, { status: 200 })
+    return NextResponse.json({
+      status: "healthy",
+      database: "connected",
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || "unknown",
+    })
   } catch (error) {
-    console.error("Health check failed:", error)
-
     return NextResponse.json(
       {
         status: "unhealthy",
+        error: "Internal server error",
         timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 503 },
+      { status: 500 },
     )
   }
-}
-
-// Optional: Add a simple HEAD request for load balancer health checks
-export async function HEAD() {
-  return new Response(null, { status: 200 })
 }

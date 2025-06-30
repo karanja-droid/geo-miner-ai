@@ -1,18 +1,20 @@
 import { supabase, createServerClient } from "../../lib/supabase"
 import jest from "jest" // Import jest to fix the undeclared variable error
 
+// Mock environment variables for testing
+const mockEnvVars = {
+  NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
+  SUPABASE_SERVICE_ROLE_KEY: "test-service-key",
+}
+
+// Set up environment variables before tests
+Object.assign(process.env, mockEnvVars)
+
 describe("Supabase Connection", () => {
   beforeAll(() => {
     // Ensure environment variables are set for testing
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co"
-    }
-    if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key"
-    }
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key"
-    }
+    Object.assign(process.env, mockEnvVars)
   })
 
   describe("Client Connection", () => {
