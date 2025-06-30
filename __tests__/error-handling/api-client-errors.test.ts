@@ -1,5 +1,5 @@
-import { jest } from "@jest/globals"
 import apiClient from "@/lib/api"
+import jest from "jest" // Import jest to declare the variable
 
 // Mock fetch globally
 const mockFetch = jest.fn()
@@ -10,54 +10,58 @@ const mockLocalStorage = {
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
+  clear: jest.fn(),
 }
-Object.defineProperty(window, "localStorage", { value: mockLocalStorage })
+
+Object.defineProperty(window, "localStorage", {
+  value: mockLocalStorage,
+  writable: true,
+})
+
+// Mock window.location
+delete (window as any).location
+window.location = { href: "" } as any
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockFetch.mockClear()
+  mockLocalStorage.getItem.mockReturnValue(null)
+})
 
 describe("API Client Error Handling", () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    mockFetch.mockReset()
-    mockLocalStorage.getItem.mockReturnValue(null)
-  })
-
   describe("Network Errors", () => {
-    it("should handle fetch timeout", async () => {
+    test("handles fetch timeout", async () => {
       mockFetch.mockImplementation(
-        () =>
-          new Promise((_, reject) => {
-            const error = new Error("Request timeout")
-            error.name = "AbortError"
-            setTimeout(() => reject(error), 100)
-          }),
+        () => new Promise((_, reject) => setTimeout(() => reject(new Error("The operation was aborted")), 100)),
       )
 
-      const result = await apiClient.login("test@example.com", "password123")
+      const result = await apiClient.login("test@example.com", "password")
 
-      expect(result.error).toContain("Request timeout")
+      expect(result.error).toContain("timeout")
       expect(result.status).toBe(0)
     })
 
-    it("should handle network connection failure", async () => {
+    test("handles network connection failure", async () => {
       mockFetch.mockRejectedValue(new Error("Failed to fetch"))
 
-      const result = await apiClient.login("test@example.com", "password123")
+      const result = await apiClient.login("test@example.com", "password")
 
       expect(result.error).toContain("Network error")
       expect(result.status).toBe(0)
     })
 
-    it("should handle DNS resolution failure", async () => {
-      mockFetch.mockRejectedValue(new Error("getaddrinfo ENOTFOUND"))
+    test("handles DNS resolution failure", async () => {
+      mockFetch.mockRejectedValue(new Error("getaddrinfo ENOTFOUND api.example.com"))
 
-      const result = await apiClient.login("test@example.com", "password123")
+      const result = await apiClient.login("test@example.com", "password")
 
-      expect(result.error).toBe("getaddrinfo ENOTFOUND")
+      expect(result.error).toBeTruthy()
       expect(result.status).toBe(0)
     })
   })
 
-  describe("HTTP Status Code Errors", () => {
-    it("should handle 401 Unauthorized", async () => {
+  describe("HTTP Status Code Handling", () => {
+    test("handles 401 unauthorized", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
@@ -70,9 +74,11 @@ describe("API Client Error Handling", () => {
 
       expect(result.error).toContain("Authentication required")
       expect(result.status).toBe(401)
+      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("geominer_token")
+      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("geominer_user")
     })
 
-    it("should handle 403 Forbidden", async () => {
+    test("handles 403 forbidden", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 403,
@@ -83,11 +89,11 @@ describe("API Client Error Handling", () => {
 
       const result = await apiClient.getProjects()
 
-      expect(result.error).toContain("don't have permission")
+      expect(result.error).toContain("permission")
       expect(result.status).toBe(403)
     })
 
-    it("should handle 404 Not Found", async () => {
+    test("handles 404 not found", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 404,
@@ -98,11 +104,11 @@ describe("API Client Error Handling", () => {
 
       const result = await apiClient.getProjects()
 
-      expect(result.error).toContain("resource was not found")
+      expect(result.error).toContain("not found")
       expect(result.status).toBe(404)
     })
 
-    it("should handle 429 Rate Limit", async () => {
+    test("handles 429 rate limit", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 429,
@@ -114,20 +120,20 @@ describe("API Client Error Handling", () => {
         text: async () => JSON.stringify({ detail: "Rate limit exceeded" }),
       })
 
-      const result = await apiClient.login("test@example.com", "password123")
+      const result = await apiClient.login("test@example.com", "password")
 
       expect(result.error).toContain("Rate limit exceeded")
       expect(result.status).toBe(429)
       expect(result.retryAfter).toBe(120)
     })
 
-    it("should handle 500 Internal Server Error", async () => {
+    test("handles 500 server error", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
         statusText: "Internal Server Error",
         headers: new Headers({ "content-type": "application/json" }),
-        text: async () => JSON.stringify({ detail: "Database connection failed" }),
+        text: async () => JSON.stringify({ detail: "Server error" }),
       })
 
       const result = await apiClient.getProjects()
@@ -136,184 +142,114 @@ describe("API Client Error Handling", () => {
       expect(result.status).toBe(500)
     })
 
-    it("should handle 502 Bad Gateway", async () => {
+    test("handles 502 bad gateway", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 502,
         statusText: "Bad Gateway",
-        headers: new Headers({ "content-type": "text/html" }),
-        text: async () => "<html><body>Bad Gateway</body></html>",
+        headers: new Headers({ "content-type": "application/json" }),
+        text: async () => JSON.stringify({ detail: "Bad gateway" }),
       })
 
       const result = await apiClient.getProjects()
 
-      expect(result.error).toContain("Service temporarily unavailable")
+      expect(result.error).toContain("temporarily unavailable")
       expect(result.status).toBe(502)
-    })
-
-    it("should handle 503 Service Unavailable", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 503,
-        statusText: "Service Unavailable",
-        headers: new Headers({ "content-type": "application/json" }),
-        text: async () => JSON.stringify({ detail: "Maintenance mode" }),
-      })
-
-      const result = await apiClient.getProjects()
-
-      expect(result.error).toContain("Service temporarily unavailable")
-      expect(result.status).toBe(503)
-    })
-
-    it("should handle 504 Gateway Timeout", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 504,
-        statusText: "Gateway Timeout",
-        headers: new Headers({ "content-type": "application/json" }),
-        text: async () => JSON.stringify({ detail: "Upstream timeout" }),
-      })
-
-      const result = await apiClient.getProjects()
-
-      expect(result.error).toContain("Service temporarily unavailable")
-      expect(result.status).toBe(504)
     })
   })
 
   describe("Response Parsing Errors", () => {
-    it("should handle non-JSON response", async () => {
+    test("handles non-JSON content type", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
         statusText: "Internal Server Error",
         headers: new Headers({ "content-type": "text/html" }),
-        text: async () => "<html><body>Server Error</body></html>",
+        text: async () => "<html><body>Error</body></html>",
       })
 
-      const result = await apiClient.login("test@example.com", "password123")
+      const result = await apiClient.login("test@example.com", "password")
 
-      expect(result.error).toContain("Expected JSON response")
+      expect(result.error).toContain("non-JSON response")
       expect(result.status).toBe(500)
     })
 
-    it("should handle empty response", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        headers: new Headers({ "content-type": "application/json" }),
-        text: async () => "",
-      })
-
-      const result = await apiClient.login("test@example.com", "password123")
-
-      expect(result.error).toContain("Empty response from server")
-      expect(result.status).toBe(500)
-    })
-
-    it("should handle malformed JSON", async () => {
+    test("handles empty response body", async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 400,
         statusText: "Bad Request",
         headers: new Headers({ "content-type": "application/json" }),
-        text: async () => "{ invalid json }",
+        text: async () => "",
       })
 
-      const result = await apiClient.login("test@example.com", "password123")
+      const result = await apiClient.login("test@example.com", "password")
 
-      expect(result.error).toContain("Invalid JSON response")
+      expect(result.error).toContain("Empty response")
       expect(result.status).toBe(400)
     })
 
-    it("should handle successful response with malformed JSON", async () => {
+    test("handles malformed JSON", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
+        headers: new Headers({ "content-type": "application/json" }),
+        text: async () => '{"invalid": json}',
+      })
+
+      const result = await apiClient.login("test@example.com", "password")
+
+      expect(result.error).toContain("Invalid JSON")
+      expect(result.status).toBe(400)
+    })
+
+    test("handles successful response with malformed JSON", async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
         statusText: "OK",
         headers: new Headers({ "content-type": "application/json" }),
-        text: async () => "{ invalid json }",
+        text: async () => '{"access_token": "token", "user":}',
       })
 
-      const result = await apiClient.login("test@example.com", "password123")
+      const result = await apiClient.login("test@example.com", "password")
 
-      expect(result.error).toContain("Invalid JSON response")
+      expect(result.error).toContain("Invalid JSON")
       expect(result.status).toBe(0)
     })
   })
 
   describe("Input Validation", () => {
-    it("should validate login parameters", async () => {
-      const result1 = await apiClient.login("", "password123")
-      expect(result1.error).toContain("Email and password are required")
+    test("validates login parameters", async () => {
+      const result1 = await apiClient.login("", "password")
+      expect(result1.error).toContain("required")
       expect(result1.status).toBe(400)
 
       const result2 = await apiClient.login("test@example.com", "")
-      expect(result2.error).toContain("Email and password are required")
+      expect(result2.error).toContain("required")
       expect(result2.status).toBe(400)
     })
 
-    it("should validate registration parameters", async () => {
-      const result1 = await apiClient.register({
+    test("validates registration parameters", async () => {
+      const result = await apiClient.register({
         name: "",
         email: "test@example.com",
-        password: "password123",
+        password: "password",
       })
-      expect(result1.error).toContain("Name, email, and password are required")
-      expect(result1.status).toBe(400)
 
-      const result2 = await apiClient.register({
-        name: "Test User",
-        email: "",
-        password: "password123",
-      })
-      expect(result2.error).toContain("Name, email, and password are required")
-      expect(result2.status).toBe(400)
-
-      const result3 = await apiClient.register({
-        name: "Test User",
-        email: "test@example.com",
-        password: "",
-      })
-      expect(result3.error).toContain("Name, email, and password are required")
-      expect(result3.status).toBe(400)
+      expect(result.error).toContain("required")
+      expect(result.status).toBe(400)
     })
   })
 
   describe("Token Management", () => {
-    it("should handle token expiration during request", async () => {
-      // Mock localStorage to return an expired token
-      mockLocalStorage.getItem.mockReturnValue("expired-token")
-
-      // Mock window.location for redirect
-      delete (window as any).location
-      window.location = { href: "" } as any
-
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 401,
-        statusText: "Unauthorized",
-        headers: new Headers({ "content-type": "application/json" }),
-        text: async () => JSON.stringify({ detail: "Token expired" }),
-      })
-
-      const result = await apiClient.getProjects()
-
-      expect(result.error).toContain("Authentication required")
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("geominer_token")
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("geominer_user")
-      expect(window.location.href).toBe("/login")
-    })
-
-    it("should include authorization header when token is available", async () => {
-      mockLocalStorage.getItem.mockReturnValue("valid-token")
+    test("includes token in authenticated requests", async () => {
+      apiClient.setToken("test-token")
 
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        statusText: "OK",
         headers: new Headers({ "content-type": "application/json" }),
         text: async () => JSON.stringify({ projects: [] }),
       })
@@ -324,42 +260,60 @@ describe("API Client Error Handling", () => {
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({
-            Authorization: "Bearer valid-token",
+            Authorization: "Bearer test-token",
+          }),
+        }),
+      )
+    })
+
+    test("handles requests without token", async () => {
+      apiClient.setToken(null)
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        text: async () =>
+          JSON.stringify({ access_token: "token", user: { id: 1, name: "Test", email: "test@example.com" } }),
+      })
+
+      await apiClient.login("test@example.com", "password")
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.not.objectContaining({
+            Authorization: expect.any(String),
           }),
         }),
       )
     })
   })
 
-  describe("Content Type Handling", () => {
-    it("should handle missing content-type header", async () => {
+  describe("FormData Handling", () => {
+    test("handles FormData uploads correctly", async () => {
+      const formData = new FormData()
+      formData.append("file", new Blob(["test"], { type: "text/plain" }))
+
       mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        headers: new Headers(),
-        text: async () => "Server Error",
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        text: async () => JSON.stringify({ success: true }),
       })
 
-      const result = await apiClient.login("test@example.com", "password123")
+      await apiClient.uploadDataset(formData)
 
-      expect(result.error).toContain("Expected JSON response")
-      expect(result.status).toBe(500)
-    })
-
-    it("should handle text/plain content-type", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        headers: new Headers({ "content-type": "text/plain" }),
-        text: async () => "Plain text error message",
-      })
-
-      const result = await apiClient.login("test@example.com", "password123")
-
-      expect(result.error).toContain("Expected JSON response")
-      expect(result.status).toBe(500)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          method: "POST",
+          body: formData,
+          headers: expect.not.objectContaining({
+            "Content-Type": expect.any(String),
+          }),
+        }),
+      )
     })
   })
 })

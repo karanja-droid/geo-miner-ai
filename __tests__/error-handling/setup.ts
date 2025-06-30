@@ -1,78 +1,97 @@
 import { jest, beforeEach, afterEach, expect } from "@jest/globals"
+import "@testing-library/jest-dom"
+
+// Mock Next.js router
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+    refresh: jest.fn(),
+  }),
+  useSearchParams: () => ({
+    get: jest.fn(),
+  }),
+  usePathname: () => "/",
+}))
+
+// Mock toast hook
+jest.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({
+    toast: jest.fn(),
+  }),
+}))
+
+// Global fetch mock
+global.fetch = jest.fn()
+
+// Mock localStorage
+const localStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+}
+
+Object.defineProperty(window, "localStorage", {
+  value: localStorageMock,
+  writable: true,
+})
 
 // Mock window.location
 delete (window as any).location
 window.location = {
   href: "",
+  origin: "http://localhost:3000",
+  protocol: "http:",
+  host: "localhost:3000",
+  hostname: "localhost",
+  port: "3000",
+  pathname: "/",
+  search: "",
+  hash: "",
   assign: jest.fn(),
   replace: jest.fn(),
   reload: jest.fn(),
-  load: jest.fn(),
 } as any
 
-// Mock console methods to reduce noise in tests
-const originalConsoleError = console.error
-const originalConsoleWarn = console.warn
-const originalConsoleLog = console.log
+// Mock environment variables
+process.env.NEXT_PUBLIC_API_URL = "http://localhost:8000"
+
+// Suppress console warnings during tests
+const originalWarn = console.warn
+const originalError = console.error
 
 beforeEach(() => {
-  // Reset mocks before each test
-  jest.clearAllMocks()
-
-  // Mock console methods
-  console.error = jest.fn()
   console.warn = jest.fn()
-  console.log = jest.fn()
+  console.error = jest.fn()
 })
 
 afterEach(() => {
-  // Restore console methods after each test
-  console.error = originalConsoleError
-  console.warn = originalConsoleWarn
-  console.log = originalConsoleLog
+  console.warn = originalWarn
+  console.error = originalError
+  jest.clearAllMocks()
 })
 
-// Global test utilities
-global.testUtils = {
-  createMockResponse: (data: any, status = 200, contentType = "application/json") => ({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: status === 200 ? "OK" : "Error",
-    headers: new Headers({ "content-type": contentType }),
-    json: async () => data,
-    text: async () => (typeof data === "string" ? data : JSON.stringify(data)),
-  }),
-
-  createNetworkError: (message = "Network error") => {
-    const error = new Error(message)
-    error.name = "NetworkError"
-    return error
-  },
-
-  createTimeoutError: () => {
-    const error = new Error("Request timeout")
-    error.name = "AbortError"
-    return error
-  },
-
-  waitForAsync: (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms)),
-}
-
-// Extend Jest matchers
+// Custom Jest matchers
 expect.extend({
-  toBeNetworkError(received) {
-    const pass = received instanceof Error && received.name === "NetworkError"
-    return {
-      message: () => `expected ${received} to be a network error`,
-      pass,
-    }
-  },
+  toHaveBeenCalledWithError(received, expectedMessage) {
+    const calls = received.mock.calls
+    const found = calls.some((call) => call.some((arg) => typeof arg === "string" && arg.includes(expectedMessage)))
 
-  toBeTimeoutError(received) {
-    const pass = received instanceof Error && received.name === "AbortError"
     return {
-      message: () => `expected ${received} to be a timeout error`,
-      pass,
+      message: () => `expected ${received} to have been called with error message containing "${expectedMessage}"`,
+      pass: found,
     }
   },
 })
+
+// Global error handler for unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason)
+})
+
+// Increase timeout for error handling tests
+jest.setTimeout(10000)

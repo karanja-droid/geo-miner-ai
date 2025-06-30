@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react"
-import { jest } from "@jest/globals"
 import { ErrorBoundary } from "@/components/error-boundary"
+import jest from "jest" // Import jest to declare the variable
 
 // Component that throws an error
 const ThrowError = ({ shouldThrow }: { shouldThrow: boolean }) => {
@@ -21,11 +21,7 @@ afterAll(() => {
 })
 
 describe("Error Boundary", () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
-
-  it("should render children when there is no error", () => {
+  test("renders children when there is no error", () => {
     render(
       <ErrorBoundary>
         <ThrowError shouldThrow={false} />
@@ -35,25 +31,55 @@ describe("Error Boundary", () => {
     expect(screen.getByText("No error")).toBeInTheDocument()
   })
 
-  it("should render error UI when there is an error", () => {
+  test("renders error UI when there is an error", () => {
     render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>,
     )
 
-    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument()
-    expect(screen.getByText(/test error/i)).toBeInTheDocument()
+    expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument()
+    expect(screen.getByText(/An unexpected error occurred/i)).toBeInTheDocument()
   })
 
-  it("should provide retry functionality", () => {
+  test("displays error details in development", () => {
+    const originalEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = "development"
+
+    render(
+      <ErrorBoundary>
+        <ThrowError shouldThrow={true} />
+      </ErrorBoundary>,
+    )
+
+    expect(screen.getByText(/Test error/i)).toBeInTheDocument()
+
+    process.env.NODE_ENV = originalEnv
+  })
+
+  test("hides error details in production", () => {
+    const originalEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = "production"
+
+    render(
+      <ErrorBoundary>
+        <ThrowError shouldThrow={true} />
+      </ErrorBoundary>,
+    )
+
+    expect(screen.queryByText(/Test error/i)).not.toBeInTheDocument()
+
+    process.env.NODE_ENV = originalEnv
+  })
+
+  test("provides retry functionality", () => {
     const { rerender } = render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>,
     )
 
-    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument()
+    expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument()
 
     // Click retry button
     const retryButton = screen.getByRole("button", { name: /try again/i })
@@ -69,13 +95,17 @@ describe("Error Boundary", () => {
     expect(screen.getByText("No error")).toBeInTheDocument()
   })
 
-  it("should log errors to console", () => {
+  test("logs errors for monitoring", () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation()
+
     render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>,
     )
 
-    expect(console.error).toHaveBeenCalled()
+    expect(consoleSpy).toHaveBeenCalledWith("Error caught by boundary:", expect.any(Error), expect.any(Object))
+
+    consoleSpy.mockRestore()
   })
 })

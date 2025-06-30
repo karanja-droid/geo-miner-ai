@@ -1,8 +1,18 @@
+const nextJest = require("next/jest")
 const baseConfig = require("./jest.config.js")
 
-module.exports = {
+const createJestConfig = nextJest({
+  // Provide the path to your Next.js app to load next.config.js and .env files
+  dir: "./",
+})
+
+// Add any custom config to be passed to Jest
+const customJestConfig = {
   ...baseConfig,
-  testMatch: ["<rootDir>/__tests__/error-handling/**/*.test.{ts,tsx}"],
+  displayName: "Error Handling Tests",
+  setupFilesAfterEnv: ["<rootDir>/__tests__/error-handling/setup.ts"],
+  testEnvironment: "jest-environment-jsdom",
+  testMatch: ["<rootDir>/__tests__/error-handling/**/*.test.{js,jsx,ts,tsx}"],
   collectCoverageFrom: [
     "lib/auth-context.tsx",
     "lib/api.ts",
@@ -10,6 +20,7 @@ module.exports = {
     "components/error-boundary.tsx",
     "!**/*.d.ts",
     "!**/*.stories.{ts,tsx}",
+    "!**/node_modules/**",
   ],
   coverageThreshold: {
     global: {
@@ -19,5 +30,11 @@ module.exports = {
       statements: 85,
     },
   },
-  setupFilesAfterEnv: ["<rootDir>/jest.setup.js", "<rootDir>/__tests__/error-handling/setup.ts"],
+  coverageReporters: ["text", "html", "json-summary", "json"],
+  verbose: true,
+  testTimeout: 10000,
+  maxWorkers: 1, // Run tests serially for error handling tests
 }
+
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
+module.exports = createJestConfig(customJestConfig)

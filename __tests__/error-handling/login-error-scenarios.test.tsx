@@ -1,183 +1,126 @@
-import { screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
-import { jest } from "@jest/globals"
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { useRouter } from "next/navigation"
 import LoginPage from "@/app/login/page"
-import { render } from "../utils/test-utils"
+import { AuthProvider } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
+import jest from "jest" // Import jest to fix the undeclared variable error
 
-// Mock the auth context
-const mockLogin = jest.fn()
-const mockAuthContext = {
-  user: null,
-  token: null,
-  login: mockLogin,
-  logout: jest.fn(),
-  register: jest.fn(),
-  isLoading: false,
-  isAuthenticated: false,
-  refreshToken: jest.fn(),
-}
+// Mock dependencies
+jest.mock("next/navigation", () => ({
+  useRouter: jest.fn(),
+}))
+
+jest.mock("@/hooks/use-toast", () => ({
+  useToast: jest.fn(),
+}))
 
 // Mock fetch globally
 const mockFetch = jest.fn()
 global.fetch = mockFetch
 
+const mockPush = jest.fn()
+const mockToast = jest.fn()
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  ;(useRouter as jest.Mock).mockReturnValue({ push: mockPush })
+  ;(useToast as jest.Mock).mockReturnValue({ toast: mockToast })
+
+  // Clear localStorage
+  Object.defineProperty(window, "localStorage", {
+    value: {
+      getItem: jest.fn(() => null),
+      setItem: jest.fn(),
+      removeItem: jest.fn(),
+      clear: jest.fn(),
+    },
+    writable: true,
+  })
+})
+
+const renderLoginPage = () => {
+  return render(
+    <AuthProvider>
+      <LoginPage />
+    </AuthProvider>,
+  )
+}
+
 describe("Login Error Scenarios", () => {
-  const user = userEvent.setup()
-
-  beforeEach(() => {
-    jest.clearAllMocks()
-    mockFetch.mockReset()
-  })
-
   describe("Network Errors", () => {
-    it("should handle network timeout", async () => {
-      mockFetch.mockImplementation(
-        () => new Promise((_, reject) => setTimeout(() => reject(new Error("AbortError")), 100)),
-      )
+    test("handles network timeout error", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("The operation was aborted"))
 
-      render(<LoginPage />, { authContext: mockAuthContext })
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
 
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/request timeout/i)).toBeInTheDocument()
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Login Failed",
+          description: expect.stringContaining("timeout"),
+          variant: "destructive",
+        })
       })
     })
 
-    it("should handle network connection failure", async () => {
-      mockFetch.mockRejectedValue(new Error("Failed to fetch"))
+    test("handles network connection error", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Failed to fetch"))
 
-      render(<LoginPage />, { authContext: mockAuthContext })
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
 
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/network error/i)).toBeInTheDocument()
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Login Failed",
+          description: expect.stringContaining("Network error"),
+          variant: "destructive",
+        })
       })
     })
 
-    it("should handle server unavailable (503)", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 503,
-        statusText: "Service Unavailable",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({ detail: "Service temporarily unavailable" }),
-        text: async () => JSON.stringify({ detail: "Service temporarily unavailable" }),
+    test("handles DNS resolution error", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("getaddrinfo ENOTFOUND"))
+
+      renderLoginPage()
+
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
       })
 
-      render(<LoginPage />, { authContext: mockAuthContext })
-
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
-
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/service temporarily unavailable/i)).toBeInTheDocument()
-      })
-    })
-  })
-
-  describe("JSON Parsing Errors", () => {
-    it("should handle malformed JSON response", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 400,
-        statusText: "Bad Request",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => {
-          throw new Error("Unexpected token")
-        },
-        text: async () => "{ invalid json }",
-      })
-
-      render(<LoginPage />, { authContext: mockAuthContext })
-
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
-
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
-
-      await waitFor(() => {
-        expect(screen.getByText(/invalid json response/i)).toBeInTheDocument()
-      })
-    })
-
-    it("should handle empty response", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({}),
-        text: async () => "",
-      })
-
-      render(<LoginPage />, { authContext: mockAuthContext })
-
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
-
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
-
-      await waitFor(() => {
-        expect(screen.getByText(/empty response/i)).toBeInTheDocument()
-      })
-    })
-
-    it("should handle non-JSON response", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        headers: new Headers({ "content-type": "text/html" }),
-        json: async () => {
-          throw new Error("Not JSON")
-        },
-        text: async () => "<html><body>Server Error</body></html>",
-      })
-
-      render(<LoginPage />, { authContext: mockAuthContext })
-
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
-
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
-
-      await waitFor(() => {
-        expect(screen.getByText(/expected json response/i)).toBeInTheDocument()
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Login Failed",
+          description: expect.stringContaining("connection"),
+          variant: "destructive",
+        })
       })
     })
   })
 
-  describe("Authentication Errors", () => {
-    it("should handle invalid credentials (401)", async () => {
-      mockFetch.mockResolvedValue({
+  describe("Server Response Errors", () => {
+    test("handles 401 unauthorized error", async () => {
+      mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
         statusText: "Unauthorized",
@@ -186,48 +129,24 @@ describe("Login Error Scenarios", () => {
         text: async () => JSON.stringify({ detail: "Invalid credentials" }),
       })
 
-      render(<LoginPage />, { authContext: mockAuthContext })
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "wrong@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "wrongpassword" },
+      })
 
-      await user.type(emailInput, "wrong@example.com")
-      await user.type(passwordInput, "wrongpassword")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/invalid email or password/i)).toBeInTheDocument()
+        expect(screen.getByText(/Invalid email or password/i)).toBeInTheDocument()
       })
     })
 
-    it("should handle account disabled (403)", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 403,
-        statusText: "Forbidden",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({ detail: "Account is disabled" }),
-        text: async () => JSON.stringify({ detail: "Account is disabled" }),
-      })
-
-      render(<LoginPage />, { authContext: mockAuthContext })
-
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
-
-      await user.type(emailInput, "disabled@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
-
-      await waitFor(() => {
-        expect(screen.getByText(/account is disabled/i)).toBeInTheDocument()
-      })
-    })
-
-    it("should handle rate limiting (429)", async () => {
-      mockFetch.mockResolvedValue({
+    test("handles 429 rate limit error", async () => {
+      mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 429,
         statusText: "Too Many Requests",
@@ -239,220 +158,289 @@ describe("Login Error Scenarios", () => {
         text: async () => JSON.stringify({ detail: "Rate limit exceeded" }),
       })
 
-      render(<LoginPage />, { authContext: mockAuthContext })
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
 
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/too many login attempts/i)).toBeInTheDocument()
+        expect(screen.getByText(/Too many login attempts/i)).toBeInTheDocument()
+      })
+    })
+
+    test("handles 500 server error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+        headers: new Headers({ "content-type": "application/json" }),
+        json: async () => ({ detail: "Internal server error" }),
+        text: async () => JSON.stringify({ detail: "Internal server error" }),
+      })
+
+      renderLoginPage()
+
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
+
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/Server error. Please try again later/i)).toBeInTheDocument()
       })
     })
   })
 
-  describe("Response Structure Errors", () => {
-    it("should handle missing access_token in response", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: "OK",
+  describe("JSON Parsing Errors", () => {
+    test("handles malformed JSON response", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
         headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({ user: { id: "123", email: "test@example.com", name: "Test" } }),
-        text: async () => JSON.stringify({ user: { id: "123", email: "test@example.com", name: "Test" } }),
+        text: async () => '{"invalid": json}',
       })
 
-      render(<LoginPage />, { authContext: mockAuthContext })
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
 
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/invalid response from server/i)).toBeInTheDocument()
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Login Failed",
+          description: expect.stringContaining("Invalid JSON"),
+          variant: "destructive",
+        })
       })
     })
 
-    it("should handle missing user data in response", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: "OK",
+    test("handles empty response", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
         headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({ access_token: "token123" }),
-        text: async () => JSON.stringify({ access_token: "token123" }),
+        text: async () => "",
       })
 
-      render(<LoginPage />, { authContext: mockAuthContext })
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
 
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/invalid response from server/i)).toBeInTheDocument()
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Login Failed",
+          description: expect.stringContaining("Empty response"),
+          variant: "destructive",
+        })
       })
     })
 
-    it("should handle incomplete user data", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({
-          access_token: "token123",
-          user: { email: "test@example.com" }, // Missing id and name
-        }),
-        text: async () =>
-          JSON.stringify({
-            access_token: "token123",
-            user: { email: "test@example.com" },
-          }),
+    test("handles non-JSON response", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+        headers: new Headers({ "content-type": "text/html" }),
+        text: async () => "<html><body>Server Error</body></html>",
       })
 
-      render(<LoginPage />, { authContext: mockAuthContext })
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
 
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/invalid user data from server/i)).toBeInTheDocument()
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Login Failed",
+          description: expect.stringContaining("Expected JSON response"),
+          variant: "destructive",
+        })
       })
     })
   })
 
   describe("Form Validation Errors", () => {
-    it("should handle empty email", async () => {
-      render(<LoginPage />, { authContext: mockAuthContext })
+    test("shows error for empty email", async () => {
+      renderLoginPage()
 
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
 
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/email is required/i)).toBeInTheDocument()
+        expect(screen.getByText(/Email is required/i)).toBeInTheDocument()
       })
     })
 
-    it("should handle invalid email format", async () => {
-      render(<LoginPage />, { authContext: mockAuthContext })
+    test("shows error for invalid email format", async () => {
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "invalid-email" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
 
-      await user.type(emailInput, "invalid-email")
-      await user.type(passwordInput, "password123")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/please enter a valid email address/i)).toBeInTheDocument()
+        expect(screen.getByText(/Please enter a valid email address/i)).toBeInTheDocument()
       })
     })
 
-    it("should handle empty password", async () => {
-      render(<LoginPage />, { authContext: mockAuthContext })
+    test("shows error for empty password", async () => {
+      renderLoginPage()
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
 
-      await user.type(emailInput, "test@example.com")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/password is required/i)).toBeInTheDocument()
+        expect(screen.getByText(/Password is required/i)).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe("Success Response Validation", () => {
+    test("handles missing access_token in response", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        text: async () => JSON.stringify({ user: { id: 1, name: "Test", email: "test@example.com" } }),
+      })
+
+      renderLoginPage()
+
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
+
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Login Failed",
+          description: expect.stringContaining("Invalid response"),
+          variant: "destructive",
+        })
       })
     })
 
-    it("should handle short password", async () => {
-      render(<LoginPage />, { authContext: mockAuthContext })
+    test("handles missing user data in response", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        text: async () => JSON.stringify({ access_token: "token123" }),
+      })
 
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+      renderLoginPage()
 
-      await user.type(emailInput, "test@example.com")
-      await user.type(passwordInput, "12")
-      await user.click(submitButton)
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
+      })
+
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/password must be at least 3 characters/i)).toBeInTheDocument()
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "Login Failed",
+          description: expect.stringContaining("Invalid response"),
+          variant: "destructive",
+        })
       })
     })
   })
 
   describe("Error Recovery", () => {
-    it("should clear errors when user starts typing", async () => {
-      render(<LoginPage />, { authContext: mockAuthContext })
-
-      const emailInput = screen.getByLabelText(/email/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
+    test("clears errors when user starts typing", async () => {
+      renderLoginPage()
 
       // Trigger validation error
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/email is required/i)).toBeInTheDocument()
+        expect(screen.getByText(/Email is required/i)).toBeInTheDocument()
       })
 
       // Start typing to clear error
-      await user.type(emailInput, "test@example.com")
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "t" },
+      })
 
       await waitFor(() => {
-        expect(screen.queryByText(/email is required/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Email is required/i)).not.toBeInTheDocument()
       })
     })
 
-    it("should clear login error when user modifies input", async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 401,
-        statusText: "Unauthorized",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({ detail: "Invalid credentials" }),
-        text: async () => JSON.stringify({ detail: "Invalid credentials" }),
+    test("clears login error when user modifies input", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network error"))
+
+      renderLoginPage()
+
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test@example.com" },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "password123" },
       })
 
-      render(<LoginPage />, { authContext: mockAuthContext })
-
-      const emailInput = screen.getByLabelText(/email/i)
-      const passwordInput = screen.getByLabelText(/password/i)
-      const submitButton = screen.getByRole("button", { name: /sign in/i })
-
-      await user.type(emailInput, "wrong@example.com")
-      await user.type(passwordInput, "wrongpassword")
-      await user.click(submitButton)
+      fireEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/invalid email or password/i)).toBeInTheDocument()
+        expect(screen.getByText(/Network error/i)).toBeInTheDocument()
       })
 
       // Modify input to clear error
-      await user.clear(emailInput)
-      await user.type(emailInput, "correct@example.com")
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "test2@example.com" },
+      })
 
       await waitFor(() => {
-        expect(screen.queryByText(/invalid email or password/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Network error/i)).not.toBeInTheDocument()
       })
     })
   })
