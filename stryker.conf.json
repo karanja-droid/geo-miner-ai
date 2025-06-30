@@ -1,0 +1,73 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "reporters": ["html", "clear-text", "progress", "json"],
+  "testRunner": "jest",
+  "jest": {
+    "projectType": "custom",
+    "configFile": "jest.config.js",
+    "enableFindRelatedTests": true
+  },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "app/**/*.{ts,tsx}",
+    "!**/*.test.{ts,tsx}",
+    "!**/*.spec.{ts,tsx}",
+    "!**/*.stories.{ts,tsx}",
+    "!**/*.d.ts",
+    "!**/node_modules/**",
+    "!**/.next/**",
+    "!**/coverage/**",
+    "!**/storybook-static/**"
+  ],
+  "testFramework": "jest",
+  "timeoutMS": 60000,
+  "timeoutFactor": 1.5,
+  "maxConcurrentTestRunners": 2,
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": 50
+  },
+  "dashboard": {
+    "project": "github.com/your-org/geominer-frontend",
+    "version": "main"
+  },
+  "htmlReporter": {
+    "fileName": "reports/mutation/mutation-report.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation-report.json"
+  },
+  "plugins": ["@stryker-mutator/core", "@stryker-mutator/jest-runner", "@stryker-mutator/typescript-checker"],
+  "checkers": ["typescript"],
+  "tsconfigFile": "tsconfig.json",
+  "tempDirName": "stryker-tmp",
+  "cleanTempDir": true,
+  "logLevel": "info",
+  "fileLogLevel": "trace",
+  "allowConsoleColors": true,
+  "concurrency": 2,
+  "dryRunTimeoutMinutes": 5,
+  "mutationRange": {
+    "start": {
+      "line": 1,
+      "column": 1
+    },
+    "end": {
+      "line": 999999,
+      "column": 999999
+    }
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/coverage/**",
+    "**/storybook-static/**",
+    "**/e2e/**",
+    "**/docs/**"
+  ],
+  "ignorers": ["@stryker-mutator/ignore-loader"]
+}

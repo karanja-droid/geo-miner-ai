@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "extends": "./stryker.conf.json",
+  "mutate": ["lib/**/*.{ts,tsx}", "!lib/**/*.test.{ts,tsx}", "!lib/**/*.spec.{ts,tsx}"],
+  "testFramework": "jest",
+  "jest": {
+    "projectType": "custom",
+    "configFile": "jest.config.js",
+    "enableFindRelatedTests": true
+  },
+  "htmlReporter": {
+    "fileName": "reports/mutation/lib-mutation-report.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/lib-mutation-report.json"
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 80,
+    "break": 70
+  }
+}
