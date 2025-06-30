@@ -1,130 +1,189 @@
 import { supabase } from "../supabase"
-import type { Database } from "./types"
-
-type Dataset = Database["public"]["Tables"]["datasets"]["Row"]
-type DatasetInsert = Database["public"]["Tables"]["datasets"]["Insert"]
-type DatasetUpdate = Database["public"]["Tables"]["datasets"]["Update"]
+import type { Dataset, InsertDataset, UpdateDataset } from "./types"
 
 export class DatasetService {
-  static async getDatasets(projectId?: string) {
-    let query = supabase
-      .from("datasets")
-      .select(`
-        *,
-        projects (
-          id,
-          name,
-          owner_id
-        )
-      `)
-      .order("created_at", { ascending: false })
+  // Get all datasets for a project
+  static async getDatasets(projectId: string): Promise<{ data: Dataset[] | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase
+        .from("datasets")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
 
-    if (projectId) {
-      query = query.eq("project_id", projectId)
+      if (error) {
+        return { data: null, error: new Error(error.message) }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
     }
-
-    const { data, error } = await query
-
-    if (error) {
-      throw new Error(`Failed to fetch datasets: ${error.message}`)
-    }
-
-    return data || []
   }
 
-  static async getDataset(id: string) {
-    const { data, error } = await supabase
-      .from("datasets")
-      .select(`
-        *,
-        projects (
-          id,
-          name,
-          owner_id
-        )
-      `)
-      .eq("id", id)
-      .single()
+  // Get a single dataset by ID
+  static async getDataset(id: string): Promise<{ data: Dataset | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase.from("datasets").select("*").eq("id", id).single()
 
-    if (error) {
-      throw new Error(`Failed to fetch dataset: ${error.message}`)
+      if (error) {
+        return { data: null, error: new Error(error.message) }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
     }
-
-    return data
   }
 
-  static async createDataset(dataset: DatasetInsert) {
-    const { data, error } = await supabase.from("datasets").insert(dataset).select().single()
+  // Create a new dataset
+  static async createDataset(dataset: InsertDataset): Promise<{ data: Dataset | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase.from("datasets").insert(dataset).select().single()
 
-    if (error) {
-      throw new Error(`Failed to create dataset: ${error.message}`)
+      if (error) {
+        return { data: null, error: new Error(error.message) }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
     }
-
-    return data
   }
 
-  static async updateDataset(id: string, updates: DatasetUpdate) {
-    const { data, error } = await supabase.from("datasets").update(updates).eq("id", id).select().single()
+  // Update a dataset
+  static async updateDataset(
+    id: string,
+    updates: UpdateDataset,
+  ): Promise<{ data: Dataset | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase.from("datasets").update(updates).eq("id", id).select().single()
 
-    if (error) {
-      throw new Error(`Failed to update dataset: ${error.message}`)
+      if (error) {
+        return { data: null, error: new Error(error.message) }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
     }
-
-    return data
   }
 
-  static async deleteDataset(id: string) {
-    const { error } = await supabase.from("datasets").delete().eq("id", id)
+  // Delete a dataset
+  static async deleteDataset(id: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.from("datasets").delete().eq("id", id)
 
-    if (error) {
-      throw new Error(`Failed to delete dataset: ${error.message}`)
+      if (error) {
+        return { error: new Error(error.message) }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return { error: error as Error }
     }
-
-    return true
   }
 
-  static async uploadFile(file: File, projectId: string) {
-    const fileExt = file.name.split(".").pop()
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-    const filePath = `datasets/${projectId}/${fileName}`
+  // Upload file to Supabase Storage
+  static async uploadFile(
+    file: File,
+    projectId: string,
+  ): Promise<{ data: { path: string } | null; error: Error | null }> {
+    try {
+      const fileExt = file.name.split(".").pop()
+      const fileName = `${projectId}/${Date.now()}.${fileExt}`
 
-    // Upload file to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage.from("datasets").upload(filePath, file)
+      const { data, error } = await supabase.storage.from("datasets").upload(fileName, file, {
+        cacheControl: "3600",
+        upsert: false,
+      })
 
-    if (uploadError) {
-      throw new Error(`Failed to upload file: ${uploadError.message}`)
+      if (error) {
+        return { data: null, error: new Error(error.message) }
+      }
+
+      return { data: { path: data.path }, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
     }
-
-    // Create dataset record
-    const dataset = await this.createDataset({
-      project_id: projectId,
-      name: file.name,
-      file_path: filePath,
-      file_size: file.size,
-      file_type: file.type,
-      upload_status: "completed",
-      metadata: {
-        originalName: file.name,
-        uploadedAt: new Date().toISOString(),
-      },
-    })
-
-    return dataset
   }
 
-  static async getFileUrl(filePath: string) {
-    const { data } = await supabase.storage.from("datasets").getPublicUrl(filePath)
+  // Get file URL from Supabase Storage
+  static async getFileUrl(path: string): Promise<{ data: { publicUrl: string } | null; error: Error | null }> {
+    try {
+      const { data } = supabase.storage.from("datasets").getPublicUrl(path)
 
-    return data.publicUrl
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
   }
 
-  static async deleteFile(filePath: string) {
-    const { error } = await supabase.storage.from("datasets").remove([filePath])
+  // Delete file from Supabase Storage
+  static async deleteFile(path: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.storage.from("datasets").remove([path])
 
-    if (error) {
-      throw new Error(`Failed to delete file: ${error.message}`)
+      if (error) {
+        return { error: new Error(error.message) }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return { error: error as Error }
     }
+  }
 
-    return true
+  // Get datasets with analysis counts
+  static async getDatasetsWithStats(
+    projectId: string,
+  ): Promise<{ data: (Dataset & { analysis_count: number })[] | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase
+        .from("datasets")
+        .select(`
+          *,
+          ai_analyses(count)
+        `)
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        return { data: null, error: new Error(error.message) }
+      }
+
+      // Transform the data to include analysis count
+      const datasetsWithStats =
+        data?.map((dataset) => ({
+          ...dataset,
+          analysis_count: dataset.ai_analyses?.[0]?.count || 0,
+        })) || []
+
+      return { data: datasetsWithStats, error: null }
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  }
+
+  // Subscribe to dataset changes
+  static subscribeToDatasets(projectId: string, callback: (payload: any) => void) {
+    return supabase
+      .channel(`datasets:${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "datasets",
+          filter: `project_id=eq.${projectId}`,
+        },
+        callback,
+      )
+      .subscribe()
+  }
+
+  // Unsubscribe from dataset changes
+  static unsubscribeFromDatasets(subscription: any) {
+    return supabase.removeChannel(subscription)
   }
 }
